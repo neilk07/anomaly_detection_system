@@ -1,0 +1,9 @@
+# requirements.txt
+
+numpy
+pandas
+scikit-learn
+streamlit
+joblib
+plotly # Optional for better plotting in app.py:
+matplotlib # Needed for plot in data_generator.py
