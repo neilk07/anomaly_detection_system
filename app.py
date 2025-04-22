@@ -1,4 +1,4 @@
-# app.py (Corrected Version)
+# app.py (Corrected Version - Fix for inconsistent lengths)
 
 """
 Streamlit Application for Real-Time Anomaly Detection Simulation (Enhanced)
@@ -247,15 +247,19 @@ if st.session_state.running and st.session_state.current_step < len(df):
         with status_col2:
             # Show ground truth comparison if available
             if ground_truth is not None:
-                true_label = ground_truth[st.session_state.current_step]
-                if true_label == -1:
-                    st.info("Ground Truth: Known Anomaly")
-                    if prediction == -1: st.success("Detection: Correct (TP)")
-                    else: st.error("Detection: Missed (FN)")
+                # Check if current_step is within bounds of ground_truth
+                if st.session_state.current_step < len(ground_truth):
+                    true_label = ground_truth[st.session_state.current_step]
+                    if true_label == -1:
+                        st.info("Ground Truth: Known Anomaly")
+                        if prediction == -1: st.success("Detection: Correct (TP)")
+                        else: st.error("Detection: Missed (FN)")
+                    else:
+                        st.info("Ground Truth: Normal")
+                        if prediction == -1: st.warning("Detection: False Alarm (FP)")
+                        else: st.success("Detection: Correct (TN)")
                 else:
-                    st.info("Ground Truth: Normal")
-                    if prediction == -1: st.warning("Detection: False Alarm (FP)")
-                    else: st.success("Detection: Correct (TN)")
+                    st.warning("Ground truth index out of bounds.") # Should not happen if logic is correct
             else:
                 st.info("Ground Truth: N/A")
 
@@ -285,7 +289,10 @@ if st.session_state.running and st.session_state.current_step < len(df):
     # --- Update Detected Anomalies Tab ---
     with detected_log_placeholder: # Update content within the container
         if st.session_state.detected_anomalies_list:
-            detected_df_display = pd.DataFrame(st.session_state.detected_anomalies_list).set_index('Timestamp')
+            # Create DataFrame ensuring Timestamp becomes the index
+            detected_df_display = pd.DataFrame(st.session_state.detected_anomalies_list)
+            if 'Timestamp' in detected_df_display.columns:
+                 detected_df_display = detected_df_display.set_index('Timestamp')
             st.dataframe(detected_df_display.tail(20)) # Show last 20 detected
             # Prepare data for download button
             csv_data = convert_df_to_csv(detected_df_display) # Use the full dataframe
@@ -303,7 +310,6 @@ if st.session_state.running and st.session_state.current_step < len(df):
     st.session_state.current_step += 1
     # Apply simulation speed delay
     if st.session_state.simulation_speed > 0:
-        # *** The incorrect line that was here has been removed ***
         time.sleep(st.session_state.simulation_speed)
     # Trigger rerun for next step
     st.rerun()
@@ -321,9 +327,11 @@ elif not st.session_state.running and st.session_state.current_step > 0:
     # Update the detected anomalies tab one last time to show the full log
     with detected_log_placeholder:
         if st.session_state.detected_anomalies_list:
-            # Display the full log
-            detected_df_display = pd.DataFrame(st.session_state.detected_anomalies_list).set_index('Timestamp')
-            st.dataframe(detected_df_display)
+            # Create DataFrame ensuring Timestamp becomes the index
+            detected_df_display = pd.DataFrame(st.session_state.detected_anomalies_list)
+            if 'Timestamp' in detected_df_display.columns:
+                 detected_df_display = detected_df_display.set_index('Timestamp')
+            st.dataframe(detected_df_display) # Show all detected when paused/finished
             # Prepare data for download button (needed again here for when paused)
             csv_data = convert_df_to_csv(detected_df_display)
             st.download_button(
@@ -343,17 +351,33 @@ elif not st.session_state.running and st.session_state.current_step > 0:
         if ground_truth is not None and len(st.session_state.all_predictions) > 0:
              # Calculate results only if they haven't been calculated yet for this run
             if st.session_state.evaluation_results is None:
-                y_true = ground_truth[:st.session_state.current_step] # Evaluate only up to the point reached
-                y_pred = np.array(st.session_state.all_predictions)
+                # !--- CORRECTED SECTION ---!
+                # Get the list of predictions actually made
+                y_pred_list = st.session_state.all_predictions
+                num_predictions = len(y_pred_list) # Get the actual count
 
-                st.write(f"Evaluating based on {st.session_state.current_step} simulation steps.")
+                # Convert predictions to numpy array
+                y_pred = np.array(y_pred_list)
+
+                # Slice ground_truth based on the *number of predictions made*
+                # This ensures y_true and y_pred have the same length
+                y_true = ground_truth[:num_predictions]
+                # !--- END CORRECTED SECTION ---!
+
+                st.write(f"Evaluating based on {num_predictions} simulation steps.")
                 # Use try-except block for robustness during calculation
                 try:
                     eval_output_buffer = io.StringIO()
                     from contextlib import redirect_stdout
                     with redirect_stdout(eval_output_buffer):
                         # Ensure evaluate_predictions can handle the data shapes
-                        evaluate_predictions(y_true, y_pred)
+                        if len(y_true) == len(y_pred): # Final sanity check
+                             evaluate_predictions(y_true, y_pred)
+                        else:
+                             # This should not happen with the fix, but good to have a fallback
+                             st.error(f"Internal Error: Mismatch persists - y_true len {len(y_true)}, y_pred len {len(y_pred)}")
+                             eval_output_buffer.write("Evaluation failed due to length mismatch.")
+
                     # Store the captured output in session state
                     st.session_state.evaluation_results = eval_output_buffer.getvalue()
                 except Exception as e:
@@ -362,7 +386,11 @@ elif not st.session_state.running and st.session_state.current_step > 0:
                     st.session_state.evaluation_results = "Evaluation failed. See error details above."
 
             # Display the stored evaluation results (either the captured output or error message)
-            st.text(st.session_state.evaluation_results)
+            if st.session_state.evaluation_results:
+                 st.text(st.session_state.evaluation_results)
+            else:
+                 st.info("Evaluation results are being calculated or encountered an issue.")
+
 
             st.markdown("---")
             st.markdown("#### Final Summary for Layman:")
