@@ -152,7 +152,7 @@ if __name__ == "__main__":
         # For simplicity, assume anomaly_detector.py was run and we have predictions
 
         # *** Re-run prediction to ensure columns exist for standalone execution ***
-        from anomaly_detection import AnomalyDetector # Import here for standalone run
+        from anomaly_detector import AnomalyDetector # Import here for standalone run
         from config import SENSOR_CONFIG # Import here for standalone run
         detector = AnomalyDetector()
         try:
