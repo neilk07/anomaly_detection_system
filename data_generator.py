@@ -62,9 +62,12 @@ def generate_baseline_data():
     for i, name in enumerate(sensor_names):
         data[name] += noise[:, i]
 
-    # Create DataFrame
-    df = pd.DataFrame(data, index=pd.to_datetime(np.arange(N_SAMPLES) / SAMPLING_RATE, unit='s', origin='2024-01-01'))
-    df.index.name = 'Timestamp'
+    # Create DataFramegit
+
+    import datetime
+    # ... inside generate_baseline_data ...
+    run_time_origin = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get current time as string
+    df = pd.DataFrame(data, index=pd.to_datetime(np.arange(N_SAMPLES) / SAMPLING_RATE, unit='s', origin=run_time_origin))
 
     print("Baseline data generation complete.")
     return df, noise
