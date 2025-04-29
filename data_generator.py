@@ -187,13 +187,13 @@ if __name__ == "__main__":
     # --- Generate Normal Data ---
     df_normal, _ = generate_baseline_data()
     # Save normal data (useful for training the detector)
-    df_normal.to_csv(NORMAL_DATA_PATH)
+    df_normal.to_csv(NORMAL_DATA_PATH, index_label="Timestamp")
     print(f"Normal operation data saved to {NORMAL_DATA_PATH}")
 
     # --- Generate Anomalous Data ---
     df_anomalous, anomaly_log = inject_anomalies(df_normal)
     # Save anomalous data (useful for testing the detector)
-    df_anomalous.to_csv(ANOMALOUS_DATA_PATH)
+    df_anomalous.to_csv(ANOMALOUS_DATA_PATH, index_label="Timestamp")
     print(f"Anomalous data saved to {ANOMALOUS_DATA_PATH}")
 
     # Save anomaly log
