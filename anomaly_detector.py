@@ -1,4 +1,4 @@
-# anomaly_detector.py
+# anomaly_detector.py (WITH DEBUGGING CODE ADDED)
 
 """
 Anomaly Detection Module using Isolation Forest
@@ -22,6 +22,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 import joblib # For saving/loading the model and scaler
+import traceback # For detailed error reporting
 
 from config import (
     NORMAL_DATA_PATH, MODEL_PATH, IFOREST_N_ESTIMATORS, IFOREST_CONTAMINATION, SENSOR_CONFIG, ANOMALOUS_DATA_PATH
@@ -141,15 +142,71 @@ if __name__ == "__main__":
 
     # 1. Load the NORMAL data generated previously
     try:
+        # --- START DEBUGGING BLOCK ---
+        print(f"--- DEBUG: Attempting to load {NORMAL_DATA_PATH} ---")
+        try:
+            # Use utf-8-sig encoding to automatically handle potential BOM
+            with open(NORMAL_DATA_PATH, 'r', encoding='utf-8-sig') as f:
+                header = f.readline().strip() # Read first line, remove leading/trailing whitespace
+                print(f"DEBUG: Raw header read from file: '{header}'")
+                # Split header by comma, strip whitespace from each part
+                cols = [c.strip() for c in header.split(',')]
+                print(f"DEBUG: Columns detected after split: {cols}")
+                # Check if 'Timestamp' exists exactly in the list of columns
+                if 'Timestamp' in cols:
+                    print("DEBUG: 'Timestamp' IS in the detected columns list.")
+                else:
+                    print("DEBUG: 'Timestamp' IS NOT in the detected columns list.")
+                    # If not found, check the first column carefully for hidden chars
+                    if cols: # Check if cols list is not empty
+                         print(f"DEBUG: Comparing 'Timestamp' == '{cols[0]}'? { 'Timestamp' == cols[0] }")
+                         print(f"DEBUG: Representation of first detected column: {repr(cols[0])}")
+                    else:
+                         print("DEBUG: No columns detected after split.")
+        except FileNotFoundError:
+             print(f"DEBUG: Error - File not found during manual header check: {NORMAL_DATA_PATH}")
+             # Re-raise the error so the main exception block catches it
+             raise
+        except Exception as debug_e:
+            print(f"DEBUG: Error during manual header check: {debug_e}")
+        print("--- DEBUG: End of manual header check ---")
+        # --- END DEBUGGING BLOCK ---
+
+        # Now, the original line that might be failing:
         df_normal_train = pd.read_csv(NORMAL_DATA_PATH, index_col='Timestamp', parse_dates=True)
         print(f"Loaded normal training data: {df_normal_train.shape}")
+
     except FileNotFoundError:
-        print(f"Error: Normal data file {NORMAL_DATA_PATH} not found.")
+        print(f"\nERROR: Normal data file {NORMAL_DATA_PATH} not found.")
         print("Please run data_generator.py first to create the data.")
         exit()
+    # Add specific catch for ValueError to see context if it still happens
+    except ValueError as e:
+        print(f"\nERROR: Encountered ValueError during pd.read_csv!")
+        print(f"Error message: {e}")
+        print("This usually means the column specified in 'index_col' ('Timestamp') was not found exactly as named in the CSV header.")
+        print("Please re-verify the DEBUG output above regarding the header and detected columns.")
+        print("\nFull Traceback for ValueError:")
+        print(traceback.format_exc())
+        exit() # Stop execution after this specific error
+    except Exception as e:
+        print(f"\nERROR: An unexpected error occurred during data loading:")
+        print(f"Error message: {e}")
+        print("\nFull Traceback:")
+        print(traceback.format_exc())
+        exit() # Stop execution
+
+    # --- The rest of the script ---
 
     # Ensure columns match SENSOR_CONFIG (in case data generation changes)
-    df_normal_train = df_normal_train[list(SENSOR_CONFIG.keys())]
+    try:
+         df_normal_train = df_normal_train[list(SENSOR_CONFIG.keys())]
+    except KeyError as e:
+         print(f"\nERROR: Mismatch between columns in loaded data and SENSOR_CONFIG.")
+         print(f"Missing/unexpected column: {e}")
+         print(f"Columns loaded: {df_normal_train.columns.tolist()}")
+         print(f"Columns expected in config: {list(SENSOR_CONFIG.keys())}")
+         exit()
 
     # 2. Initialize and Train the detector
     detector = AnomalyDetector()
@@ -160,14 +217,53 @@ if __name__ == "__main__":
 
     # 4. Load the ANOMALOUS data for testing prediction
     try:
+        # --- Add similar debug for anomalous data loading ---
+        print(f"\n--- DEBUG: Attempting to load {ANOMALOUS_DATA_PATH} ---")
+        try:
+            with open(ANOMALOUS_DATA_PATH, 'r', encoding='utf-8-sig') as f:
+                header = f.readline().strip()
+                print(f"DEBUG: Raw header read from file: '{header}'")
+                cols = [c.strip() for c in header.split(',')]
+                print(f"DEBUG: Columns detected after split: {cols}")
+                if 'Timestamp' not in cols:
+                    print("DEBUG: 'Timestamp' IS NOT in the detected columns list.")
+                    if cols:
+                         print(f"DEBUG: Representation of first detected column: {repr(cols[0])}")
+                    else:
+                         print("DEBUG: No columns detected after split.")
+        except Exception as debug_e:
+            print(f"DEBUG: Error during manual header check: {debug_e}")
+        print("--- DEBUG: End of manual header check ---")
+
         df_anomalous_test = pd.read_csv(ANOMALOUS_DATA_PATH, index_col='Timestamp', parse_dates=True)
         print(f"Loaded anomalous test data: {df_anomalous_test.shape}")
+
     except FileNotFoundError:
-        print(f"Error: Anomalous data file {ANOMALOUS_DATA_PATH} not found.")
+        print(f"\nERROR: Anomalous data file {ANOMALOUS_DATA_PATH} not found.")
         print("Please run data_generator.py first to create the data.")
         exit()
+    except ValueError as e:
+         print(f"\nERROR: Encountered ValueError during pd.read_csv for anomalous data!")
+         print(f"Error message: {e}")
+         print("Please check the DEBUG output above for this file's header.")
+         print("\nFull Traceback for ValueError:")
+         print(traceback.format_exc())
+         exit()
+    except Exception as e:
+         print(f"\nERROR: An unexpected error occurred loading anomalous data:")
+         print(f"Error message: {e}")
+         print("\nFull Traceback:")
+         print(traceback.format_exc())
+         exit()
 
-    df_anomalous_test = df_anomalous_test[list(SENSOR_CONFIG.keys())]
+    try:
+        df_anomalous_test = df_anomalous_test[list(SENSOR_CONFIG.keys())]
+    except KeyError as e:
+         print(f"\nERROR: Mismatch between columns in loaded anomalous data and SENSOR_CONFIG.")
+         print(f"Missing/unexpected column: {e}")
+         print(f"Columns loaded: {df_anomalous_test.columns.tolist()}")
+         print(f"Columns expected in config: {list(SENSOR_CONFIG.keys())}")
+         exit()
 
     # 5. Make predictions on the anomalous data
     print("\nMaking predictions on the test data (containing anomalies)...")
@@ -194,4 +290,9 @@ if __name__ == "__main__":
 
     # Display rows flagged as anomalies
     print("\nSample of points flagged as anomalies:")
-    print(df_anomalous_test[df_anomalous_test['Anomaly_Predicted'] == -1].head())
+    # Check if any anomalies were predicted before trying to print
+    anomalies_found = df_anomalous_test[df_anomalous_test['Anomaly_Predicted'] == -1]
+    if not anomalies_found.empty:
+        print(anomalies_found.head())
+    else:
+        print("No anomalies were detected in the test data sample.")
