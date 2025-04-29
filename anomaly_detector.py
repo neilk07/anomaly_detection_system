@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     # 1. Load the NORMAL data generated previously
     try:
-        df_normal_train = pd.read_csv(NORMAL_DATA_PATH, index_col="Timestamp", parse_dates=True)
+        df_normal_train = pd.read_csv(NORMAL_DATA_PATH, index_col='Timestamp', parse_dates=True)
         print(f"Loaded normal training data: {df_normal_train.shape}")
     except FileNotFoundError:
         print(f"Error: Normal data file {NORMAL_DATA_PATH} not found.")
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # 4. Load the ANOMALOUS data for testing prediction
     try:
-        df_anomalous_test = pd.read_csv(ANOMALOUS_DATA_PATH, index_col="Timestamp", parse_dates=True)
+        df_anomalous_test = pd.read_csv(ANOMALOUS_DATA_PATH, index_col='Timestamp', parse_dates=True)
         print(f"Loaded anomalous test data: {df_anomalous_test.shape}")
     except FileNotFoundError:
         print(f"Error: Anomalous data file {ANOMALOUS_DATA_PATH} not found.")

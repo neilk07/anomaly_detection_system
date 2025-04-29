@@ -1,4 +1,4 @@
-# app.py (Corrected Version - Fix for inconsistent lengths)
+# app.py
 
 """
 Streamlit Application for Real-Time Anomaly Detection Simulation (Enhanced)
